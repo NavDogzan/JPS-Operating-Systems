@@ -573,8 +573,23 @@ def mp3():
     song_metadata = {
         "here comes the sun": {"artist": "The Beatles", "theme": "#d8b45b"},
         "duvet": {"artist": "boa", "theme": "#78909c"},
+        "bohemian rhapsody": {"artist": "Queen", "theme": "#9C4CA3"},
     }
     current_song_length = 0.0
+    current_song_index = None
+
+    def darker_color(color, factor=0.8):
+        color = color.lstrip("#")
+        red, green, blue = (
+            int(color[index:index + 2], 16)
+            for index in (0, 2, 4)
+        )
+        return "#{:02x}{:02x}{:02x}".format(
+            int(red * factor),
+            int(green * factor),
+            int(blue * factor),
+        )
+
     def app():
         
         global playlist_s, playing
@@ -617,7 +632,7 @@ def mp3():
         vinyl_image = Image.open(vinyl_path).convert("RGBA")
         vinyl_image_frame = tk.Frame(VinlyFrame, width=140, height=140, bg=MusicTheme)
         vinyl_image_frame.pack_propagate(False)
-        vinyl_image_frame.place(x=190, rely=0.5, anchor="center")
+        vinyl_image_frame.place(x=190, y=120, anchor="center")
         vinyl_image = vinyl_image.resize((140, 140), Image.LANCZOS)
         base_vinyl_image = vinyl_image.copy()
         vinyl_photo = ImageTk.PhotoImage(vinyl_image)
@@ -625,16 +640,17 @@ def mp3():
         vinyl_label.image = vinyl_photo
         vinyl_label.pack(fill="both", expand=True)
 
-        Albumphotoframe = tk.Frame(VinlyFrame, height=150,width=150)
+        Albumphotoframe = tk.Frame(VinlyFrame, height=155,width=155, borderwidth=5,relief=tk.RIDGE)
         Albumphotoframe.pack_propagate(False)
         Labl = tk.Label(Albumphotoframe,image=albumphoto,height=300,width=300)
         Labl.image = albumphoto
-        Albumphotoframe.place(x=100, rely=0.5, anchor="center")
+        Albumphotoframe.place(x=100, y=120, anchor="center")
         Labl.pack(fill="both", expand=True)
 
         def load_song(song_index):
             global playing, playlist_s
-            nonlocal MusicTheme, vinyl_image, current_song_length
+            nonlocal MusicTheme, vinyl_image, current_song_length, current_song_index
+            current_song_index = song_index
             songpath = songpaths[song_index]
             song_name = os.path.splitext(os.path.basename(songpath))[0].casefold()
             metadata = song_metadata.get(
@@ -643,14 +659,13 @@ def mp3():
             )
             pysound.music.load(songpath)
             current_song_length = pygame.mixer.Sound(songpath).get_length()
-            for queued_song in songpaths[song_index + 1:]:
-                pysound.music.queue(queued_song)
             pysound.music.play()
 
             albums_dir = os.path.join(os.path.dirname(__file__), "ImageAssets2", "Albums")
             cover_names = {
                 "here comes the sun": "B1.png",
-                "Duvet": "Duvet.png"
+                "duvet": "Duvet.png",
+                "bohemian rhapsody": "BR.png",
             }
             coverpath = next(
                 (
@@ -688,7 +703,7 @@ def mp3():
             mp3AppBarUp.configure(bg=MusicTheme)
             VinlyFrame.configure(bg=MusicTheme)
             ControlFrame.configure(bg=MusicTheme)
-            Framed.configure(bg=MusicTheme)
+            Framed.configure(fg_color=darker_color(MusicTheme))
             vinyl_image_frame.configure(bg=MusicTheme)
             vinyl_label.configure(bg=MusicTheme)
             time_remaining_label.configure(bg=MusicTheme)
@@ -703,7 +718,8 @@ def mp3():
             )
             playing = True
             Stastop.config(text="II")
-            playlistframe.destroy()
+            if playlistframe is not None and playlistframe.winfo_exists():
+                playlistframe.destroy()
             playlist_s = False
 
         def build_playlist_frame():
@@ -721,10 +737,18 @@ def mp3():
             playlistbox.pack(fill="both", expand=True, padx=8, pady=8)
             for songpath in songpaths:
                 playlistbox.insert(tk.END, os.path.splitext(os.path.basename(songpath))[0])
+
+            def select_song(event):
+                global playlist_s
+                selection = playlistbox.curselection()
+                if selection:
+                    playlistframe.place_forget()
+                    playlist_s = False
+                    load_song(selection[0])
+
             playlistbox.bind(
                 "<<ListboxSelect>>",
-                lambda event: load_song(playlistbox.curselection()[0])
-                if playlistbox.curselection() else None
+                select_song,
             )
 
         build_playlist_frame()
@@ -747,11 +771,15 @@ def mp3():
         volumeslide.pack(side="right", padx=5, pady=5)
 
         def spin(angle=0):
-            rotated_image = vinyl_image.rotate(angle, expand=False)
+            rotated_image = vinyl_image.rotate(
+                angle,
+                resample=Image.Resampling.BICUBIC,
+                expand=False,
+            )
             rotated_photo = ImageTk.PhotoImage(rotated_image)
             vinyl_label.configure(image=rotated_photo)
             vinyl_label.image = rotated_photo
-            vinyl_label.after(40, spin, (angle + 2) % 360)
+            vinyl_label.after(16, spin, (angle + 0.8) % 360)
 
 
 
@@ -761,11 +789,11 @@ def mp3():
             global playing
             if playing:
                 pysound.music.pause()
-                Stastop.config(text=">")
+                Stastop.configure(text=">")
                 playing = False
             else: 
                 pysound.music.unpause()
-                Stastop.config(text="II")
+                Stastop.configure(text="II")
                 playing = True
 
 
@@ -775,15 +803,15 @@ def mp3():
         musiclabel = tk.Label(VinlyFrame,text=musictitle,bg=MusicTheme,font=("Arial",10,"bold"),relief=tk.RIDGE,width=30)
         artistlabel = tk.Label(VinlyFrame,text=artist,bg=MusicTheme)
 
-        musiclabel.place(x=150,y=250,anchor="center")
-        artistlabel.place(x=150,y=270,anchor="center")
+        musiclabel.place(x=150,y=220,anchor="center")
+        artistlabel.place(x=150,y=245,anchor="center")
 
         ControlFrame = tk.Frame(mp3AppBarUp,height=300,bg=f"{MusicTheme}",borderwidth=3,relief=tk.RIDGE)
         ControlFrame.pack_propagate(False)
         ControlFrame.pack(side="top",fill="x",padx=2,pady=1)
 
         time_remaining_slider = tk.Scale(
-            ControlFrame,
+            VinlyFrame,
             orient="horizontal",
             from_=0,
             to=0,
@@ -797,9 +825,10 @@ def mp3():
             highlightthickness=0,
             borderwidth=0,
         )
-        time_remaining_slider.pack(side="top", fill="x", padx=20, pady=(8, 0))
-        time_remaining_label = tk.Label(ControlFrame, text="0:00", bg=MusicTheme)
-        time_remaining_label.pack(side="top")
+        time_remaining_label = tk.Label(VinlyFrame, text="0:00", bg=MusicTheme)
+        time_remaining_label.pack(side="bottom",pady=(0,2))
+        time_remaining_slider.pack(side="bottom", fill="x", padx=20, pady=(10,10))
+
 
         def update_time_remaining():
             if current_song_length > 0:
@@ -816,12 +845,28 @@ def mp3():
 
         update_time_remaining()
 
-        Framed = tk.Frame(ControlFrame,height=100,width=250,bg=MusicTheme)
-        nextL=tk.Button(Framed,height=2,width=3,text="<")
-        nextR=tk.Button(Framed,height=2,width=3,text=">")
-        FastL=tk.Button(Framed,height=2,width=3,text="<<")
-        FastR=tk.Button(Framed,height=2,width=3,text=">>")
-        Stastop=tk.Button(Framed,height=2,width=3,text="ll", command=playpause)
+        def advance_playlist():
+            if playing and current_song_index is not None and not pysound.music.get_busy():
+                next_song_index = current_song_index + 1
+                if next_song_index < len(songpaths):
+                    load_song(next_song_index)
+            vinyl_label.after(250, advance_playlist)
+
+        advance_playlist()
+
+        Framed = ctk.CTkFrame(
+            ControlFrame,
+            height=100,
+            width=250,
+            fg_color=darker_color(MusicTheme),
+            corner_radius=10,
+        )
+        nextR=tk.Button(Framed,height=2,width=3,text="<")
+        nextL=tk.Button(Framed,height=2,width=3,text=">")
+        FastR=tk.Button(Framed,height=2,width=3,text="<<")
+        FastL=tk.Button(Framed,height=2,width=3,text=">>")
+        Stastop=ctk.CTkButton(Framed,height=50,width=50,text="ll", command=playpause,corner_radius=100,fg_color="Light grey",text_color="Black",
+                              border_width=2, )
         Framed.place(relx=0.5,rely=0.5,anchor="center")
         nextL.pack(side="right",padx=3)
         FastL.pack(side="right",padx=3)
