@@ -6,3 +6,8 @@ num_guess_high_score.dat
 rps_high_score.dat
 ImageAssets/GoogleDriveSetup.exe
 ImageAssets2/mysql-26.7.0-winx64.msi
+bin/
+lib/
+lib64/
+include/
+pyvenv.cfg
