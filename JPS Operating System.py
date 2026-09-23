@@ -117,7 +117,7 @@ def set_desktop_wallpaper(image_path=None):
 
     imaged = Image.open(image_path)
     imaged = imaged.resize((root.winfo_width(), root.winfo_height()), Image.LANCZOS)
-    photo = ImageTk.PhotoImage(imaged)
+    photo = ImageTk.PhotoImage(master=root,  image=imaged)
     Wallp = tk.Label(MotherFrame, image=photo, borderwidth=0)
     Wallp.image = photo
     Wallp.place(x=0, y=0, relwidth=1, relheight=1)
@@ -606,7 +606,7 @@ def mp3():
 
         Album = Image.new("RGB", (150, 150), "black")
         Album = Album.resize((150, 150), Image.LANCZOS)
-        albumphoto = ImageTk.PhotoImage(Album)
+        albumphoto = ImageTk.PhotoImage(master=root,  image=Album)
 
 
 
@@ -620,7 +620,7 @@ def mp3():
         vinyl_image_frame.place(x=190, rely=0.5, anchor="center")
         vinyl_image = vinyl_image.resize((140, 140), Image.LANCZOS)
         base_vinyl_image = vinyl_image.copy()
-        vinyl_photo = ImageTk.PhotoImage(vinyl_image)
+        vinyl_photo = ImageTk.PhotoImage(master=root,  image=vinyl_image)
         vinyl_label = tk.Label(vinyl_image_frame, image=vinyl_photo, bg=MusicTheme)
         vinyl_label.image = vinyl_photo
         vinyl_label.pack(fill="both", expand=True)
@@ -667,7 +667,7 @@ def mp3():
                     coverpath = mapped_coverpath
             if coverpath is not None:
                 cover = Image.open(coverpath).resize((150, 150), Image.LANCZOS)
-                selected_album_photo = ImageTk.PhotoImage(cover)
+                selected_album_photo = ImageTk.PhotoImage(master=root,  image=cover)
                 Labl.configure(image=selected_album_photo)
                 Labl.image = selected_album_photo
 
@@ -679,7 +679,7 @@ def mp3():
                 vinyl_image.alpha_composite(vinyl_cover, (47, 47))
             else:
                 blank_album = Image.new("RGB", (150, 150), "black")
-                blank_album_photo = ImageTk.PhotoImage(blank_album)
+                blank_album_photo = ImageTk.PhotoImage(master=root,  image=blank_album)
                 Labl.configure(image=blank_album_photo)
                 Labl.image = blank_album_photo
                 vinyl_image = base_vinyl_image.copy()
@@ -748,7 +748,7 @@ def mp3():
 
         def spin(angle=0):
             rotated_image = vinyl_image.rotate(angle, expand=False)
-            rotated_photo = ImageTk.PhotoImage(rotated_image)
+            rotated_photo = ImageTk.PhotoImage(master=root,  image=rotated_image)
             vinyl_label.configure(image=rotated_photo)
             vinyl_label.image = rotated_photo
             vinyl_label.after(40, spin, (angle + 2) % 360)
@@ -1280,8 +1280,8 @@ def Imageview():
         thumbnailImage.thumbnail((110, 80), Image.LANCZOS)
         previewImage = image.copy()
         previewImage.thumbnail((370, 255), Image.LANCZOS)
-        thumbnailImages.append(ImageTk.PhotoImage(thumbnailImage))
-        previewImages.append(ImageTk.PhotoImage(previewImage))
+        thumbnailImages.append(ImageTk.PhotoImage(master=root,  image=thumbnailImage))
+        previewImages.append(ImageTk.PhotoImage(master=root,  image=previewImage))
 
     currentIndex = 0
 
@@ -1766,9 +1766,13 @@ def Startup():
     LoginSwitch = True
     existing_root = "root" in globals() and root.winfo_exists()
     if not existing_root:
+        main = tk.Tk()
+        main.configure(background="black")
+        main.attributes("-fullscreen", True)
+        main.update()
         root = tk.Tk()
     root.title("Desktop")
-    root.geometry("1020x720")
+    root.geometry(f"1020x{root.winfo_screenheight()-40}+{(root.winfo_screenwidth()//2)-510}+0") #510 = 1020/2
     root.resizable(False, False)
     
     def logincred(event):
@@ -1830,7 +1834,7 @@ def Startup():
         img = os.path.join(os.path.dirname(__file__), "ImageAssets", "user1.png")
         imaged = Image.open(img)
         imaged = imaged.resize((100, 100), Image.LANCZOS)
-        photog = ImageTk.PhotoImage(imaged)
+        photog = ImageTk.PhotoImage(master=root,  image=imaged)
         user_cards_frame = tk.Frame(Users_frame, bg="white")
         user_cards_frame.pack(expand=True)
         User1_frame = tk.Frame(user_cards_frame, width=120, height=150, bg="white")
@@ -1842,7 +1846,7 @@ def Startup():
         img2 = os.path.join(os.path.dirname(__file__), "ImageAssets", "23.jpg")
         imaged2 = Image.open(img2)
         imaged2 = imaged2.resize((100, 100), Image.LANCZOS)
-        photo2 = ImageTk.PhotoImage(imaged2)
+        photo2 = ImageTk.PhotoImage(master=root,  image=imaged2)
 
         for widget in (User1_frame, userlabel):
             widget.bind("<Button-1>", logincred)
@@ -1887,7 +1891,7 @@ def Startup():
     Imaged = Image.open(img)
     Imaged = Imaged.resize((1020, 720), Image.LANCZOS)
 
-    photo = ImageTk.PhotoImage(Imaged)
+    photo = ImageTk.PhotoImage(master=root,  image=Imaged)
     Wallp = tk.Label(GrandmaFrame, image=photo)
     Wallp.place(x=0, y=0, relwidth=1, relheight=1)
     Wallp.lower()
