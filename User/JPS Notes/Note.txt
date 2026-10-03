@@ -1,0 +1,1 @@
+{'dw': ['Dont worry', '#cc4986'], 'Reminder': ['October 3 2026,\n\nTo do:\n~ Study\n~ Sports practice \n~ Complete work/project\n\n\n', '#ec7b4e'], 'Story': ['Once upon a time there lived a boy', '#b99624']}

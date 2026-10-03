@@ -3,18 +3,31 @@ from tkinter import ttk
 import customtkinter as ctk
 import datetime as datetime_module
 from PIL import Image, ImageDraw, ImageTk
-import pygame 
+import pygame as py
 import time 
 import random
 import os
 import pickle
 import sys
+from pathlib import Path
+
+
+from MP3Player import Player
+from JPSNotes import Notes
 
 dt = datetime_module.datetime.now().strftime("%H:%M")
 print(dt)
-pygame.mixer.init()
-pysound = pygame.mixer
 now = datetime_module.datetime.now()
+
+py.mixer.init()
+pysound  = py.mixer
+
+MusicTheme = "#3f3f3f"
+BASE_DIR = Path(__file__).resolve().parent
+IMAGE_DIR = BASE_DIR / "Album_Miscs"
+MUSIC_DIR = BASE_DIR / "Music Assets"
+USER_DIR = BASE_DIR / "User"
+
 
 number_date = now.strftime("%d/%m/%Y")
 words_date = now.strftime("%A, %B %d")
@@ -95,6 +108,22 @@ class MyDragManager: #Source: Youtube
 
 taskbar_buttons = {}
 open_app_frames = {}
+wallpaper_previews = []
+
+def cleanup_tk_widgets(widget):
+    if isinstance(widget, Player):
+        widget.shutdown()
+
+    for child in list(widget.winfo_children()):
+        cleanup_tk_widgets(child)
+        if child.__class__.__module__.startswith("customtkinter"):
+            child.destroy()
+
+def close_desktop():
+    cleanup_tk_widgets(root)
+    root.destroy()
+    if "main" in globals() and main.winfo_exists():
+        main.destroy()
 
 
 def liftclickedapp(event):
@@ -270,21 +299,28 @@ def Calculator():
     Calc.add_draggable_widget(CalcAppframe)
     #-----------------------------------------------------------------------Source: StackOverflow--------------------------------------------------------------------------#
     Expression = tk.StringVar()
-    Entry = tk.Entry(CalcAppBarUp, textvar=Expression, width=30, font=('Arial', 14), bg="Light grey", fg="Black", justify='right') 
+    Entry = tk.Entry(CalcAppBarUp, textvariable=Expression, width=30, font=('Arial', 14), bg="Light grey", fg="Black", justify='right')
     Entry.grid(row=0, column=0, columnspan=4, padx=10, pady=10, sticky='nsew')
-    Entry.bind("<Return>", lambda:on_button_click('='))
-    
+
+    def sync_entry(value):
+        Entry.delete(0, tk.END)
+        Entry.insert(0, value)
+        Expression.set(value)
+
     def on_button_click(value):
+        current = Expression.get() or ""
         if value == '=':
             try:
-                result = eval(Expression.get())
-                Expression.set(result)
-            except:
-                Expression.set('Error')
+                result = str(eval(current, {"__builtins__": {}}, {}))
+                sync_entry(result)
+            except Exception:
+                sync_entry('Error')
         elif value == 'C':
-            Expression.set('')
+            sync_entry('')
         else:
-            Expression.set(Expression.get() + value)
+            sync_entry(current + str(value))
+
+    Entry.bind("<Return>", lambda event: on_button_click('='))
     
     buttons_layout = [
         ('7', '8', '9', '/'),
@@ -358,7 +394,8 @@ def Settings():
         back_btn.pack(pady=10)
 
     def ChangeWallpaper():
-        global Settings_frame2
+        global Settings_frame2, wallpaper_previews
+        wallpaper_previews = []
         img1 = os.path.join(os.path.dirname(__file__), "ImageAssets", "DeathStrading1.png")
         img2 = os.path.join(os.path.dirname(__file__), "ImageAssets", "DeathStranding2.png")
         img3 = os.path.join(os.path.dirname(__file__), "ImageAssets", "HorizonZero1.png")
@@ -368,7 +405,8 @@ def Settings():
         img7 = os.path.join(os.path.dirname(__file__), "ImageAssets", "Uncharted2.png")
         img8 = os.path.join(os.path.dirname(__file__), "ImageAssets", "Uncharted3.png")
         def ChangedWallp(img):
-                set_desktop_wallpaper(img)
+            set_desktop_wallpaper(img)
+            Label.config(text="Wallpaper applied")
 
 
             
@@ -389,24 +427,33 @@ def Settings():
         button_frame.pack(side="top", fill="both", expand=True, padx=5, pady=5)
         
 
-        WallPList = ["DS1", "DS2", "HZ1", "UN1", "White", "RE1", "UN2", "UN3", "UN4"]
-        WallpListBtn = []
-        
-        for j,button_N in enumerate(WallPList):
-            btn = tk.Button(button_frame, text=button_N, height=2, font=("Arial", 18), borderwidth=5, relief=tk.RIDGE)
+        wallpapers = [img1, img2, img7, img8, None, img3, img4, img5, img6]
 
-            btn.pack(side="top", padx=5, pady=5, fill="x")
-            WallpListBtn.append(btn)
+        for index, wallpaper_path in enumerate(wallpapers):
+            if wallpaper_path is None:
+                preview = Image.new("RGB", (140, 80), "white")
+            else:
+                preview = Image.open(wallpaper_path).convert("RGB")
+                preview.thumbnail((140, 80), Image.Resampling.LANCZOS)
+                canvas = Image.new("RGB", (140, 80), "white")
+                canvas.paste(
+                    preview,
+                    ((140 - preview.width) // 2, (80 - preview.height) // 2)
+                )
+                preview = canvas
 
-        WallpListBtn[4].config(command= lambda: set_desktop_wallpaper())
-        WallpListBtn[0].config(command= lambda: ChangedWallp(img1))
-        WallpListBtn[1].config(command= lambda: ChangedWallp(img2))
-        WallpListBtn[2].config(command= lambda: ChangedWallp(img7))
-        WallpListBtn[3].config(command= lambda: ChangedWallp(img8))
-        WallpListBtn[5].config(command= lambda: ChangedWallp(img3))
-        WallpListBtn[6].config(command= lambda: ChangedWallp(img4))
-        WallpListBtn[7].config(command= lambda: ChangedWallp(img5))
-        WallpListBtn[8].config(command= lambda: ChangedWallp(img6))
+            photo = ImageTk.PhotoImage(preview, master=root)
+            wallpaper_previews.append(photo)
+            button = tk.Button(
+                button_frame,
+                image=photo,
+                width=140,
+                height=80,
+                borderwidth=2,
+                relief=tk.RIDGE,
+                command=lambda image_path=wallpaper_path: ChangedWallp(image_path)
+            )
+            button.grid(row=index // 3, column=index % 3, padx=5, pady=5)
     def Security():
         def write(Entry):
             framelol.destroy()
@@ -517,365 +564,53 @@ def Settings():
        
     settingsapp()
 
-def mp3():
-
+def mp32():
     app_id = f"mp3_{random.randint(1000, 9999)}"
     xRand = 0
     yRand = 0
     xRand , yRand = rollnumber(xRand, yRand)
     
-    mp3_frame = tk.Frame(root, width=320, height=450, bg="#878a8b",borderwidth=1, relief=tk.RIDGE)
-    mp3_frame.place(x=xRand, y=yRand)
-    mp3_frame.pack_propagate(False)
+    mp32_frame = tk.Frame(root, width=640, height=450, bg="#878a8b",borderwidth=1, relief=tk.RIDGE)
+    mp32_frame.place(x=xRand, y=yRand)
+    mp32_frame.pack_propagate(False)
 
-    create_taskbar_button(app_id, mp3_frame, "JpsVinyl")
-    frm = tk.Frame(mp3_frame, height=30, width=100)
+    create_taskbar_button(app_id, mp32_frame, "JpsVinyl2")
+    frm = tk.Frame(mp32_frame, height=30, width=640)
     frm.pack(side="top",anchor="ne")
-
-    mp3AppBarUp = tk.Frame(mp3_frame,width=350, height=450, bg="#3f3f3f", highlightthickness=0,borderwidth=3, relief=tk.RIDGE)
-    mp3AppBarUp.propagate(False)
-    mp3AppBarUp.pack(side="top", fill="x")
-
+    
     def close_mp3():
-        pysound.music.pause()
-        closed(mp3_frame, app_id)
+        cleanup_tk_widgets(mp32_frame)
+        closed(mp32_frame, app_id)
+        mp32_frame.destroy()
 
+    mp32AppBarUp = tk.Frame(mp32_frame,width=640, height=450, bg="#3f3f3f", highlightthickness=0,borderwidth=3, relief=tk.RIDGE)
+    mp32AppBarUp.propagate(False)
+    mp32AppBarUp.pack(side="top", fill="x")
 
-
-    mp3Closebtn = tk.Button(frm,
+    mp32Closebtn = tk.Button(frm,
                     text="X",
                     fg="Black", 
                     activebackground="red",
                     width=3, 
                     height=1,
-                    command=close_mp3)
-    mp3Closebtn.pack(side="right", anchor="ne", padx=1, pady=1)
+                    command = close_mp3)
+    mp32Closebtn.pack(side="right", anchor="ne", padx=1, pady=1)
     
-    mp3miniBtn = tk.Button(frm,
+    mp32miniBtn = tk.Button(frm,
                     text="_",
                     fg="Black", 
                     width=3, 
                     height=1,
-                    command=lambda: minimize(app_id, mp3_frame))  
-    mp3miniBtn.pack(side="right", anchor="ne", padx=1, pady=1)
-    Label = tk.Label(mp3_frame, text="Jps Vinyl", bg="#878a8b", font="Arial 10 bold")
+                    command=lambda: minimize(app_id, mp32_frame))  
+    mp32miniBtn.pack(side="right", anchor="ne", padx=1, pady=1)
+    Label = tk.Label(mp32_frame, text="Jps Vinyl", bg="#878a8b", font="Arial 10 bold")
     Label.place(x=5, y=5)
 
     drag = MyDragManager()
-    drag.add_draggable_widget(mp3_frame)
-    MusicTheme = "#3f3f3f"
-    audio_dir = os.path.join(os.path.dirname(__file__), "AudioAssets")
-    songpaths = [
-        os.path.join(audio_dir, filename)
-        for filename in sorted(os.listdir(audio_dir))
-        if filename.lower().endswith(".mp3")
-    ]
-    song_metadata = {
-        "here comes the sun": {"artist": "The Beatles", "theme": "#d8b45b"},
-        "duvet": {"artist": "boa", "theme": "#78909c"},
-        "bohemian rhapsody": {"artist": "Queen", "theme": "#9C4CA3"},
-    }
-    current_song_length = 0.0
-    current_song_index = None
+    drag.add_draggable_widget(mp32_frame)
 
-    def darker_color(color, factor=0.8):
-        color = color.lstrip("#")
-        red, green, blue = (
-            int(color[index:index + 2], 16)
-            for index in (0, 2, 4)
-        )
-        return "#{:02x}{:02x}{:02x}".format(
-            int(red * factor),
-            int(green * factor),
-            int(blue * factor),
-        )
-
-    def app():
-        
-        global playlist_s, playing
-
-        playlist_s = False
-        playlistframe = None
-
-        def playlist():
-            global playlist_s
-            if not playlist_s:
-                if playlistframe is None or not playlistframe.winfo_exists():
-                    build_playlist_frame()
-                playlistframe.place(relx=0.5,y=200, anchor="center")
-                playlistframe.lift()
-                playlist_s = True
-            else:
-                if playlistframe is not None and playlistframe.winfo_exists():
-                    playlistframe.place_forget()
-                playlist_s = False
-
-        plylist_button = tk.Button(mp3AppBarUp,height=1,text="My playlist", bg="#878a8b", command=playlist)
-        plylist_button.pack(side="top",fill="x",padx=1,pady=1)
-        VinlyFrame = tk.Frame(mp3AppBarUp, height=300, bg=MusicTheme, borderwidth=3, relief=tk.RIDGE)
-        VinlyFrame.pack_propagate(False)
-        VinlyFrame.pack(side="top", fill="x", padx=2, pady=1)
-
-
-
-
-        Album = Image.new("RGB", (150, 150), "black")
-        Album = Album.resize((150, 150), Image.LANCZOS)
-        albumphoto = ImageTk.PhotoImage(master=root,  image=Album)
-
-
-
-
-
-
-        vinyl_path = os.path.join(os.path.dirname(__file__), "ImageAssets", "Vinyl.png")
-        vinyl_image = Image.open(vinyl_path).convert("RGBA")
-        vinyl_image_frame = tk.Frame(VinlyFrame, width=140, height=140, bg=MusicTheme)
-        vinyl_image_frame.pack_propagate(False)
-        vinyl_image_frame.place(x=190, y=120, anchor="center")
-        vinyl_image = vinyl_image.resize((140, 140), Image.LANCZOS)
-        base_vinyl_image = vinyl_image.copy()
-        vinyl_photo = ImageTk.PhotoImage(master=root,  image=vinyl_image)
-        vinyl_label = tk.Label(vinyl_image_frame, image=vinyl_photo, bg=MusicTheme)
-        vinyl_label.image = vinyl_photo
-        vinyl_label.pack(fill="both", expand=True)
-
-        Albumphotoframe = tk.Frame(VinlyFrame, height=155,width=155, borderwidth=5,relief=tk.RIDGE)
-        Albumphotoframe.pack_propagate(False)
-        Labl = tk.Label(Albumphotoframe,image=albumphoto,height=300,width=300)
-        Labl.image = albumphoto
-        Albumphotoframe.place(x=100, y=120, anchor="center")
-        Labl.pack(fill="both", expand=True)
-
-        def load_song(song_index):
-            global playing, playlist_s
-            nonlocal MusicTheme, vinyl_image, current_song_length, current_song_index
-            current_song_index = song_index
-            songpath = songpaths[song_index]
-            song_name = os.path.splitext(os.path.basename(songpath))[0].casefold()
-            metadata = song_metadata.get(
-                song_name,
-                {"artist": "Unknown artist", "theme": "#3f3f3f"},
-            )
-            pysound.music.load(songpath)
-            current_song_length = pygame.mixer.Sound(songpath).get_length()
-            pysound.music.play()
-
-            albums_dir = os.path.join(os.path.dirname(__file__), "ImageAssets2", "Albums")
-            cover_names = {
-                "here comes the sun": "B1.png",
-                "duvet": "Duvet.png",
-                "bohemian rhapsody": "BR.png",
-            }
-            coverpath = next(
-                (
-                    os.path.join(albums_dir, filename)
-                    for filename in os.listdir(albums_dir)
-                    if os.path.splitext(filename)[0].casefold() == song_name
-                    and os.path.splitext(filename)[1].lower() in (".png", ".jpg", ".jpeg")
-                ),
-                None,
-            )
-            if coverpath is None and song_name in cover_names:
-                mapped_coverpath = os.path.join(albums_dir, cover_names[song_name])
-                if os.path.exists(mapped_coverpath):
-                    coverpath = mapped_coverpath
-            if coverpath is not None:
-                cover = Image.open(coverpath).resize((150, 150), Image.LANCZOS)
-                selected_album_photo = ImageTk.PhotoImage(master=root,  image=cover)
-                Labl.configure(image=selected_album_photo)
-                Labl.image = selected_album_photo
-
-                vinyl_image = base_vinyl_image.copy()
-                vinyl_cover = cover.resize((45, 45), Image.LANCZOS).convert("RGBA")
-                vinyl_cover_mask = Image.new("L", (45, 45), 0)
-                ImageDraw.Draw(vinyl_cover_mask).ellipse((0, 0, 44, 44), fill=255)
-                vinyl_cover.putalpha(vinyl_cover_mask)
-                vinyl_image.alpha_composite(vinyl_cover, (47, 47))
-            else:
-                blank_album = Image.new("RGB", (150, 150), "black")
-                blank_album_photo = ImageTk.PhotoImage(master=root,  image=blank_album)
-                Labl.configure(image=blank_album_photo)
-                Labl.image = blank_album_photo
-                vinyl_image = base_vinyl_image.copy()
-
-            MusicTheme = metadata["theme"]
-            mp3AppBarUp.configure(bg=MusicTheme)
-            VinlyFrame.configure(bg=MusicTheme)
-            ControlFrame.configure(bg=MusicTheme)
-            Framed.configure(fg_color=darker_color(MusicTheme))
-            vinyl_image_frame.configure(bg=MusicTheme)
-            vinyl_label.configure(bg=MusicTheme)
-            time_remaining_label.configure(bg=MusicTheme)
-            musiclabel.configure(text=os.path.splitext(os.path.basename(songpath))[0], bg=MusicTheme)
-            artistlabel.configure(text=metadata["artist"], bg=MusicTheme)
-            volumeslide.configure(bg=MusicTheme, troughcolor=metadata["theme"])
-            time_remaining_slider.configure(from_=current_song_length, to=0)
-            time_remaining_slider.set(current_song_length)
-            duration_seconds = int(current_song_length)
-            time_remaining_label.configure(
-                text=f"{duration_seconds // 60}:{duration_seconds % 60:02d}"
-            )
-            playing = True
-            Stastop.config(text="II")
-            if playlistframe is not None and playlistframe.winfo_exists():
-                playlistframe.destroy()
-            playlist_s = False
-
-        def build_playlist_frame():
-            nonlocal playlistframe
-            playlistframe = tk.Frame(
-                mp3AppBarUp,
-                height=300,
-                width=300,
-                bg=MusicTheme,
-                relief=tk.RIDGE,
-                borderwidth=2,
-            )
-            playlistframe.pack_propagate(False)
-            playlistbox = tk.Listbox(playlistframe, bg=MusicTheme, fg="white")
-            playlistbox.pack(fill="both", expand=True, padx=8, pady=8)
-            for songpath in songpaths:
-                playlistbox.insert(tk.END, os.path.splitext(os.path.basename(songpath))[0])
-
-            def select_song(event):
-                global playlist_s
-                selection = playlistbox.curselection()
-                if selection:
-                    playlistframe.place_forget()
-                    playlist_s = False
-                    load_song(selection[0])
-
-            playlistbox.bind(
-                "<<ListboxSelect>>",
-                select_song,
-            )
-
-        build_playlist_frame()
-
-        volumeslide = tk.Scale(
-            VinlyFrame,
-            orient="vertical",
-            from_=0,
-            to=100,
-            tickinterval=0,
-            showvalue=0,
-            width=10,
-            length=250,
-            bg=MusicTheme,
-            troughcolor="#878a8b",
-            highlightthickness=0,
-            borderwidth=0
-        )
-        volumeslide.set(50)
-        volumeslide.pack(side="right", padx=5, pady=5)
-
-        def spin(angle=0):
-            rotated_image = vinyl_image.rotate(
-                angle,
-                resample=Image.Resampling.BICUBIC,
-                expand=False,
-            )
-            rotated_photo = ImageTk.PhotoImage(master=root, image=rotated_image)
-            vinyl_label.configure(image=rotated_photo)
-            vinyl_label.image = rotated_photo
-            vinyl_label.after(16, spin, (angle + 0.8) % 360)
-
-
-
-        spin()
-        playing = False
-        def playpause():
-            global playing
-            if playing:
-                pysound.music.pause()
-                Stastop.configure(text=">")
-                playing = False
-            else: 
-                pysound.music.unpause()
-                Stastop.configure(text="II")
-                playing = True
-
-
-        musictitle = "..."
-        artist = "..."
-
-        musiclabel = tk.Label(VinlyFrame,text=musictitle,bg=MusicTheme,font=("Arial",10,"bold"),relief=tk.RIDGE,width=30)
-        artistlabel = tk.Label(VinlyFrame,text=artist,bg=MusicTheme)
-
-        musiclabel.place(x=150,y=220,anchor="center")
-        artistlabel.place(x=150,y=245,anchor="center")
-
-        ControlFrame = tk.Frame(mp3AppBarUp,height=300,bg=f"{MusicTheme}",borderwidth=3,relief=tk.RIDGE)
-        ControlFrame.pack_propagate(False)
-        ControlFrame.pack(side="top",fill="x",padx=2,pady=1)
-
-        time_remaining_slider = tk.Scale(
-            VinlyFrame,
-            orient="horizontal",
-            from_=0,
-            to=0,
-            showvalue=0,
-            resolution=1,
-            width=5,
-            sliderlength=12,
-            state="disabled",
-            bg=MusicTheme,
-            troughcolor="#878a8b",
-            highlightthickness=0,
-            borderwidth=0,
-        )
-        time_remaining_label = tk.Label(VinlyFrame, text="0:00", bg=MusicTheme)
-        time_remaining_label.pack(side="bottom",pady=(0,2))
-        time_remaining_slider.pack(side="bottom", fill="x", padx=20, pady=(10,10))
-
-
-        def update_time_remaining():
-            if current_song_length > 0:
-                elapsed_time = max(pysound.music.get_pos(), 0) / 1000
-                remaining_time = max(current_song_length - elapsed_time, 0)
-                remaining_seconds = int(remaining_time)
-                time_remaining_slider.configure(state="normal")
-                time_remaining_slider.set(remaining_time)
-                time_remaining_slider.configure(state="disabled")
-                time_remaining_label.configure(
-                    text=f"{remaining_seconds // 60}:{remaining_seconds % 60:02d}"
-                )
-            vinyl_label.after(1000, update_time_remaining)
-
-        update_time_remaining()
-
-        def advance_playlist():
-            if playing and current_song_index is not None and not pysound.music.get_busy():
-                next_song_index = current_song_index + 1
-                if next_song_index < len(songpaths):
-                    load_song(next_song_index)
-            vinyl_label.after(250, advance_playlist)
-
-        advance_playlist()
-
-        Framed = ctk.CTkFrame(
-            ControlFrame,
-            height=100,
-            width=250,
-            fg_color=darker_color(MusicTheme),
-            corner_radius=10,
-        )
-        nextR=tk.Button(Framed,height=2,width=3,text="<")
-        nextL=tk.Button(Framed,height=2,width=3,text=">")
-        FastR=tk.Button(Framed,height=2,width=3,text="<<")
-        FastL=tk.Button(Framed,height=2,width=3,text=">>")
-        Stastop=ctk.CTkButton(Framed,height=50,width=50,text="ll", command=playpause,corner_radius=100,fg_color="Light grey",text_color="Black",
-                              border_width=2, )
-        Framed.place(relx=0.5,rely=0.5,anchor="center")
-        nextL.pack(side="right",padx=3)
-        FastL.pack(side="right",padx=3)
-        Stastop.pack(side="right",padx=3)
-        FastR.pack(side="right",padx=3)
-        nextR.pack(side="right",padx=3)
-    
-
-    app() 
+    mp32app = Player(mp32AppBarUp)
+    mp32app.pack(side='top') 
 
 def RockPaperScissors():
 
@@ -1559,10 +1294,11 @@ def JPS_Notes():
     Notes_frame.pack_propagate(False)
 
     create_taskbar_button(app_id, Notes_frame, "Notes")
-
-    NotesAppBarUp = tk.Frame(Notes_frame, height=320, bg="Light blue", highlightthickness=0,borderwidth=5, relief=tk.RIDGE)
+    label = tk.Label(Notes_frame, text="JPS Notes", bg="#3f8099", font="Arial 10 bold")
+    label.place(x=5, y=5) 
+    NotesAppBarUp = tk.Frame(Notes_frame, height=320, bg="Light blue", highlightthickness=0, relief=tk.RIDGE)
     NotesAppBarUp.propagate(False)
-    NotesAppBarUp.pack(side="bottom", fill="x")
+    NotesAppBarUp.pack(side="bottom", fill="both", expand=True)
 
     NotesClosebtn = tk.Button(Notes_frame,
                     text="X",
@@ -1586,92 +1322,13 @@ def JPS_Notes():
 
     
 
-    Notes = MyDragManager()
-    Notes.add_draggable_widget(Notes_frame)
+    Notesdrag = MyDragManager()
+    Notesdrag.add_draggable_widget(Notes_frame)
 
-    Note_1_path = os.path.join(os.path.dirname(__file__), "JPS Notes", "Note1.txt") 
-    Note_2_path = os.path.join(os.path.dirname(__file__), "JPS Notes", "Note2.txt") 
-    Note_3_path = os.path.join(os.path.dirname(__file__), "JPS Notes", "Note3.txt") 
-    Note_4_path = os.path.join(os.path.dirname(__file__), "JPS Notes", "Note4.txt") 
-    Note_5_path =  os.path.join(os.path.dirname(__file__), "JPS Notes", "Note5.txt")  
-    note_names_path = os.path.join(os.path.dirname(__file__), "JPS Notes", "note_names.txt")
-    default_note_names = ["Note 1", "Note 2", "Note 3", "Note 4", "Note 5"]
-    try:
-        with open(note_names_path, "r", encoding="utf-8") as names_file:
-            note_names = [line.rstrip("\n") for line in names_file]
-        if len(note_names) != len(default_note_names):
-            note_names = default_note_names.copy()
-    except FileNotFoundError:
-        note_names = default_note_names.copy()
-    def tempAction():
-        NoteOpenFrame.destroy()
-        NotesApp()
-    def Note_Open(Notee, note_index):
-        global NotesOpenEntry, NoteOpenFrame, WriteBtn, BackBtn, NoteNameEntry
-        with open(Notee,"r") as nt:
-            a = nt.read()
-            Notes_frame1.destroy()
-            NotesTitle.destroy()
-
-
-        NoteOpenFrame = tk.Frame(NotesAppBarUp, width=500, height=300, bg="Light blue")
-        NoteOpenFrame.pack(side="left",padx=10, pady=10)
-        NoteOpenFrame.propagate(False)
-        NotesOpenEntry = tk.Text(NoteOpenFrame, bg = "Light Blue", width=400, height=200)
-        NotesOpenEntry.insert(1.0,a)
-        NotesOpenEntry.propagate(False)
-        NotesOpenEntry.place(x=0, y=5, width=400, height=250)
-        NoteNameEntry = tk.Entry(NoteOpenFrame, bg = "Light Blue", width = 20)
-        NoteNameEntry.insert(1, note_names[note_index])
-        NoteNameEntry.place(x=0,y=270)
-        WriteBtn = tk.Button(NoteOpenFrame, text="Save", height=2, width=10,
-                 command=lambda: Note_Write(Notee, note_index))
-        WriteBtn.place(x=406, y=0)
-        BackBtn = tk.Button(NoteOpenFrame, text="Back", height=2, width = 10, command=tempAction)
-        BackBtn.place(x=406, y= 50)
-
-    def Note_Write(Note, note_index):
-        with open(Note,"w") as nt1:
-            nt1.write(NotesOpenEntry.get("1.0","end"))
-        note_names[note_index] = NoteNameEntry.get()
-        with open(note_names_path, "w", encoding="utf-8") as names_file:
-            names_file.write("\n".join(note_names) + "\n")
-        if note_index < len(NotesListBtn) and NotesListBtn[note_index].winfo_exists():
-            NotesListBtn[note_index].config(text=NoteNameEntry.get())
-
-
-        
-    def NotesApp():
-        global Notes_frame1, NotesTitle,NotesList,NotesListBtn
-        NoteApp_label = tk.Label(Notes_frame, text= "JPS Notes", bg="#3f8099", font="Arial 10 bold")
-        NoteApp_label.place(x=5, y=5)
-        Notes_frame1 = tk.Frame(NotesAppBarUp, width=500, height=300, bg="Light blue")
-        Notes_frame1.propagate(False)
-        Notes_frame1.pack(side="left",padx=10, pady=10)
-        NotesTitle = tk.Label(NotesAppBarUp, text= "JPS Notes", font= "Roman 18 bold underline",width=10, height=2, bg="Light blue")
-        desc1 = tk.Label(NotesAppBarUp, text="Write and save notes,", font=("Arial", 10), bg="Light blue")
-        desc2 = tk.Label(NotesAppBarUp, text="Click on a note to open it", font=("Arial", 10), bg="Light blue")
-
-        NotesTitle.pack(side = "right", anchor="ne", padx=60)
-        desc1.place(relx=0.8, y=50, anchor="n")
-        desc2.place(relx=0.8, y=70, anchor="n")
-        NotesList = note_names
-        NotesListBtn = []
-        
-        
-        for j,button_N in enumerate(NotesList):
-            btn = tk.Button(Notes_frame1, text=button_N, width=20, height=1, font=("Arial", 14), relief=tk.RIDGE)
-            btn.grid(row=j, column=0, padx=5, pady=5)
-            NotesListBtn.append(btn)
-        note_paths = [Note_1_path, Note_2_path, Note_3_path, Note_4_path, Note_5_path]
-        for note_index, (note_button, note_path) in enumerate(zip(NotesListBtn, note_paths)):
-            note_button.config(command=lambda path=note_path, index=note_index: Note_Open(path, index))
-
-
-
-
-
-    NotesApp()
+    app = Notes(NotesAppBarUp)
+    app.pack(side='top', fill='both', expand=True)
+    Notes_frame.lift()
+    
 def DesktopApps():
     app1= tk.Button(MotherFrame, text = "JPS\nNotes", height=3,width=7, bg="Light blue", borderwidth=5, relief=tk.RIDGE, command=JPS_Notes)
     app2= tk.Button(MotherFrame, text = "Calcu\nlator", height=3,width=7, bg="Light blue", borderwidth=5, relief=tk.RIDGE, command=Calculator)
@@ -1681,7 +1338,7 @@ def DesktopApps():
     app5.propagate(False)
     app6= tk.Button(MotherFrame, text = "JPS\nPaint", height=3,width=7, bg="Light blue", borderwidth=5, relief=tk.RIDGE, command=JPSPaint)
     app7= tk.Button(MotherFrame, text = "JPS\n PHOTOS", height=3,width=7, bg="Light blue", borderwidth=5, relief=tk.RIDGE, command=Imageview)
-    app8= tk.Button(MotherFrame, text = "JPS\n Vinyl", height=3,width=7, bg="Light blue", borderwidth=5, relief=tk.RIDGE, command=mp3)
+    app8= tk.Button(MotherFrame, text = "JPS\n Vinyl", height=3,width=7, bg="Light blue", borderwidth=5, relief=tk.RIDGE, command=mp32)
     app1.place(x=10,y=30)
 
     app2.place(x=10, y=110)
@@ -1735,7 +1392,7 @@ def desktopFunc():
     ShutMenu.place_forget()
 
     Lock = tk.Button(ShutMenu, text="Lock", width=20, height=2, command=lambda: Startup())
-    Sdown = tk.Button(ShutMenu, text="Shutdown", width=20, height=2, command=sys.exit)
+    Sdown = tk.Button(ShutMenu, text="Shutdown", width=20, height=2, command=close_desktop)
 
     Lock.pack(side="top", padx=5, pady=5)
     Sdown.pack(side="top", padx=5, pady=5)
@@ -1807,7 +1464,7 @@ def desktopFunc():
 #Consolestartup()
 
 def Startup():
-    global root, LoginBut, LoginSwitch, GrandmaFrame
+    global root, main, LoginBut, LoginSwitch, GrandmaFrame
     LoginSwitch = True
     existing_root = "root" in globals() and root.winfo_exists()
     if not existing_root:
@@ -1816,9 +1473,11 @@ def Startup():
         main.attributes("-fullscreen", True)
         main.update()
         root = tk.Tk()
+        root.configure(background="black")
     root.title("Desktop")
-    root.geometry(f"1020x{root.winfo_screenheight()-40}+{(root.winfo_screenwidth()//2)-510}+0") #510 = 1020/2
+    root.geometry(f"1020x{root.winfo_screenheight()-40}+{(root.winfo_screenwidth()//2)-510}+0") #510 = 1020/2 #
     root.resizable(False, False)
+    root.protocol("WM_DELETE_WINDOW", close_desktop)
     
     def logincred(event):
         def j(event):
@@ -1953,7 +1612,7 @@ def Startup():
     for widget in (GrandmaFrame, Wallp, Time, DayDate):
         widget.bind("<Button-1>", lambda event: users())
 
-
+    root.overrideredirect(True)
     root.mainloop()
 
 Startup()
